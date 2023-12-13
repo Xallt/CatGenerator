@@ -22,7 +22,7 @@ class CatDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.files)
     def __getitem__(self, idx):
-        img = read_image(os.path.join(self.path, self.files[idx]))
+        img = read_image(self.files[idx])
         if self.transform:
             img = self.transform(img)
         return img

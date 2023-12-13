@@ -43,7 +43,7 @@ class Trainer:
         self.optimizer.step()
         return loss.item()
 
-    def run_loop(self):
+    def run_loop(self, progress_bar=True):
         """
         Training loop.
         """
@@ -54,7 +54,10 @@ class Trainer:
         curr_count = 0
         loss_agg = 0
         for epoch_num in range(self.num_epochs):
-            for x in tqdm(self.dl):
+            dl = self.dl
+            if progress_bar:
+                dl = tqdm(dl)
+            for x in dl:
                 batch_loss = self._run_step(x)
 
                 curr_count += len(x)

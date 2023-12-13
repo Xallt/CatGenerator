@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from diffusion import Diffusion
 from tqdm.auto import tqdm
+import numpy as np
 
 
 class Trainer:
@@ -53,6 +54,7 @@ class Trainer:
         writer = SummaryWriter()
         curr_count = 0
         loss_agg = 0
+        model.train()
         for epoch_num in range(self.num_epochs):
             dl = self.dl
             if progress_bar:

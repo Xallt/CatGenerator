@@ -52,11 +52,14 @@ class Diffusion:
         self,
         *,
         betas: np.array,
-        loss_type: str = "mse"
+        loss_type: str = "mse",
+        mode = "pred_start"
     ):
         """
         Class that simulates Diffusion process. Does not store model or optimizer.
         """
+        assert mode in ["pred_start", "pred_noise"]
+        self.mode = mode
 
         betas = torch.from_numpy(betas).double()
         self.betas = betas
@@ -134,8 +137,12 @@ class Diffusion:
         model_log_variance = _extract_into_tensor(model_log_variance, t, x.shape)
 
         # Assuming model_output is \hat{\theta}
-        pred_xstart = self._predict_xstart_from_eps(x, t, model_output)
-        model_mean, *_ = self.q_posterior_mean_variance(pred_xstart, x, t)
+        if self.mode == "pred_noise":
+            pred_xstart = self._predict_xstart_from_eps(x, t, model_output)
+            model_mean, *_ = self.q_posterior_mean_variance(pred_xstart, x, t)
+        elif self.mode == "pred_start":
+            pred_xstart = model_output
+            model_mean, *_ = self.q_posterior_mean_variance(model_output, x, t)
 
         return {
             "mean": model_mean,
@@ -200,5 +207,8 @@ class Diffusion:
         noise = torch.randn_like(x0)
         x_t = self.q_sample(x0, t, noise)
         model_output = model(x_t, t)
-        loss = F.mse_loss(model_output, noise)
+        if self.mode == "pred_noise":
+            loss = F.mse_loss(model_output, noise)
+        elif self.mode == "pred_start":
+            loss = F.mse_loss(model_output, x0)
         return loss

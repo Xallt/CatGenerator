@@ -3,6 +3,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch
 import torch.nn as nn
 from diffusion import Diffusion
+from tqdm.auto import tqdm
 
 
 class Trainer:
@@ -40,13 +41,13 @@ class Trainer:
         for param_group in self.optimizer.param_groups:
             param_group["lr"] = lr
 
-    def _run_step(self, x: torch.FloatTensor, y):
+    def _run_step(self, x):
         """
         A single training step.
         Calculates loss for a single batch. 
         Then performs a single optimizer step and returns loss.
         """
-        loss = self.diffusion.train_loss(self.model, x.to(self.device), y.to(self.device))
+        loss = self.diffusion.train_loss(self.model, x.to(self.device))
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -63,8 +64,8 @@ class Trainer:
         curr_count = 0
         loss_agg = 0
         for step in tqdm(range(self.steps)):
-            x, y = next(self.train_iter)
-            batch_loss = self._run_step(x, y)
+            x = next(self.train_iter)
+            batch_loss = self._run_step(x)
 
             self._anneal_lr(step)
 

@@ -18,6 +18,7 @@ class Trainer:
         device: torch.device = torch.device('cpu'),
         num_epochs=100,
         log_every=100,
+        save_every=1000,
         checkpoint_file='checkpoint.pt'
     ):
         self.diffusion = diffusion
@@ -29,7 +30,7 @@ class Trainer:
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=weight_decay)
         self.device = device
         self.log_every = log_every
-        self.save_every = 1000
+        self.save_every = save_every
         self.checkpoint_file = checkpoint_file
 
     def _run_step(self, x):
@@ -54,7 +55,7 @@ class Trainer:
         writer = SummaryWriter()
         curr_count = 0
         loss_agg = 0
-        model.train()
+        self.model.train()
         for epoch_num in range(self.num_epochs):
             dl = self.dl
             if progress_bar:
@@ -72,4 +73,4 @@ class Trainer:
                     curr_loss_gauss = 0.0
                 if (step + 1) % self.save_every == 0:
                     torch.save(self.model.state_dict(), self.checkpoint_file)
-                step += len(x)
+                step += 1

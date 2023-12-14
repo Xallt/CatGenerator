@@ -173,7 +173,7 @@ class Diffusion:
         sample = out["mean"] + nonzero_mask * torch.exp(0.5 * out["log_variance"]) * noise
         return {"sample": sample}
     
-    def p_sample_loop(self, model, shape, y_dist, device=None):
+    def p_sample_loop(self, model, shape, device=None):
         """
         Samples a batch=shape[0] using diffusion model.
         """
@@ -181,23 +181,17 @@ class Diffusion:
         x = torch.randn(*shape, device=device)
         indices = list(range(self.num_timesteps))[::-1]
 
-        y = torch.multinomial(
-            y_dist,
-            num_samples=shape[0],
-            replacement=True
-        ).to(x.device)
-
         for i in tqdm(indices):
             t = torch.tensor([i] * shape[0], device=x.device)
             with torch.no_grad():
-                model_output = model(x, t, y)
+                model_output = model(x, t)
                 out = self.p_sample(
                     model_output,
                     x,
                     t
                 )
                 x = out["sample"]
-        return x, y
+        return x
     
     def train_loss(self, model, x0):
         """

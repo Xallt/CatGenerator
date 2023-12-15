@@ -51,14 +51,15 @@ class Encoder(nn.Module):
        
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dim, starting_resolution, out_channels, num_levels, num_blocks_per_level=2, dropout=0.0):
+    def __init__(self, latent_dim, starting_resolution, base_channels, out_channels, num_levels, num_blocks_per_level=2, dropout=0.0):
         super().__init__()
         self.starting_resolution = starting_resolution
         self.fc = nn.Linear(latent_dim, latent_dim * (starting_resolution ** 2))
+        self.start_conv = nn.Conv2d(latent_dim, base_channels, kernel_size=1)
         self.latent_dim = latent_dim
 
         layers = []
-        channels = latent_dim
+        channels = base_channels
         for level in range(num_levels+1):
             channels_next = channels // 2 if level != 0 else channels
             for _ in range(num_blocks_per_level):
@@ -73,6 +74,7 @@ class Decoder(nn.Module):
     def forward(self, x):
         x = self.fc(x)
         x = x.view(x.shape[0], self.latent_dim, self.starting_resolution, self.starting_resolution)
+        x = self.start_conv(x)
         x = self.features(x)
         x = self.final_conv(x)
         return x
@@ -86,7 +88,7 @@ class VAE(nn.Module):
         self.num_levels = num_levels
 
         self.encoder = Encoder(in_channels, in_resolution, base_channels, num_levels, latent_dim=latent_dim, num_blocks_per_level=num_blocks_per_level, dropout=dropout)
-        self.decoder = Decoder(latent_dim, self.final_resolution, in_channels, num_levels, num_blocks_per_level=num_blocks_per_level, dropout=dropout)
+        self.decoder = Decoder(latent_dim, self.final_resolution, base_channels * (2 ** num_levels), in_channels, num_levels, num_blocks_per_level=num_blocks_per_level, dropout=dropout)
     
     def sample(self, num_samples=1, latent=None, device='cuda'):
         if latent is None:
@@ -94,7 +96,7 @@ class VAE(nn.Module):
 
         return self.decoder(latent)
 
-    def compute_loss(self, x):
+    def compute_loss(self, x, kld_weight=1.0):
         mu, logvar = self.encoder(x)
         encoder_latent_sample = self.encoder.sample_from(mu, logvar)
         decoded_x = self.decoder(encoder_latent_sample)
@@ -102,7 +104,7 @@ class VAE(nn.Module):
         reconstruction_loss = F.mse_loss(x, decoded_x)
         KLd_loss = torch.mean(-0.5 * torch.sum(1 + logvar - mu ** 2 - logvar.exp(), dim = 1), dim = 0)
 
-        loss = reconstruction_loss + KLd_loss
+        loss = reconstruction_loss + KLd_loss * kld_weight
 
         return {
             'loss': loss,

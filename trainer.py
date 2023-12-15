@@ -11,7 +11,8 @@ class Trainer:
     def __init__(
         self,
         model,
-        dl,
+        train_dl,
+        val_dl,
         lr: float,
         weight_decay: float,
         device: torch.device = torch.device('cpu'),
@@ -23,7 +24,8 @@ class Trainer:
     ):
         self.model = model
 
-        self.dl = dl
+        self.train_dl = train_dl
+        self.val_dl = val_dl
         self.num_epochs = num_epochs
         self.num_samples = num_samples
         self.init_lr = lr
@@ -40,7 +42,10 @@ class Trainer:
         Calculates loss for a single batch. 
         Then performs a single optimizer step and returns loss.
         """
-        loss_dict = self.model.compute_loss(x.to(self.device))
+        loss_dict = self.model.compute_loss(
+            x.to(self.device), 
+            kld_weight=0.02
+        )
         loss = loss_dict['loss']
         self.optimizer.zero_grad()
         loss.backward()
@@ -59,7 +64,7 @@ class Trainer:
         loss_agg = 0
         self.model.train()
         for epoch_num in range(self.num_epochs):
-            dl = self.dl
+            dl = self.train_dl
             if progress_bar:
                 dl = tqdm(dl)
             loss_dict_sum = defaultdict(float)

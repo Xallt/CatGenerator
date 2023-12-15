@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from .blocks import Block, ResnetBlock
+from torch.nn import functional as F
 
 class Encoder(nn.Module):
     def __init__(self, in_channels, in_resolution, base_channels, num_levels, num_blocks_per_level=2, latent_dim=256):
@@ -35,9 +36,7 @@ class Encoder(nn.Module):
         x = self.initial_conv(x)
         x = self.features(x)
         x = self.final_conv(x)
-        print(x.shape)
         x = x.view(x.shape[0], -1)
-        print(x.shape)
         mu = self.fc_mu(x)
         logvar = self.fc_logvar(x)
         return mu, logvar
@@ -61,7 +60,7 @@ class Decoder(nn.Module):
         layers = []
         channels = latent_dim
         for level in range(num_levels+1):
-            channels_next = latent_dim // 2
+            channels_next = channels // 2 if level != 0 else channels
             for _ in range(num_blocks_per_level):
                 layers.append(ResnetBlock(channels, channels_next))
                 channels = channels_next
@@ -94,3 +93,19 @@ class VAE(nn.Module):
             latent = torch.randn(num_samples, self.latent_dim, device=self.device)
 
         return self.decoder(latent)
+
+    def compute_loss(self, x):
+        mu, logvar = self.encoder(x)
+        encoder_latent_sample = self.encoder.sample_from(mu, logvar)
+        decoded_x = self.decoder(encoder_latent_sample)
+
+        reconstruction_loss = F.mse_loss(x, decoded_x)
+        KLd_loss = torch.mean(-0.5 * torch.sum(1 + logvar - mu ** 2 - logvar.exp(), dim = 1), dim = 0)
+
+        loss = reconstruction_loss + KLd_loss
+
+        return {
+            'loss': loss,
+            'reconstruction_loss': reconstruction_loss,
+            'KLd_loss': KLd_loss
+        }

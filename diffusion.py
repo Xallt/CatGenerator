@@ -209,4 +209,6 @@ class Diffusion(torch.nn.Module):
             loss = F.mse_loss(model_output, noise)
         elif self.mode == "pred_start":
             loss = F.mse_loss(model_output, x0)
-        return loss
+        return {
+            'loss': loss
+        }

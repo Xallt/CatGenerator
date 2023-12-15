@@ -5,6 +5,7 @@ import torch.nn as nn
 from diffusion import Diffusion
 from tqdm.auto import tqdm
 import numpy as np
+from collections import defaultdict
 
 
 class Trainer:
@@ -38,11 +39,12 @@ class Trainer:
         Calculates loss for a single batch. 
         Then performs a single optimizer step and returns loss.
         """
-        loss = self.model.compute_loss(x.to(self.device))
+        loss_dict = self.model.compute_loss(x.to(self.device))
+        loss = loss_dict['loss']
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        return loss.item()
+        return {k: v.item() for k,v in loss_dict.items()}
 
     def run_loop(self, progress_bar=True):
         """
@@ -59,17 +61,19 @@ class Trainer:
             dl = self.dl
             if progress_bar:
                 dl = tqdm(dl)
+            loss_dict_sum = defaultdict(float)
             for x in dl:
-                batch_loss = self._run_step(x)
+                loss_dict = self._run_step(x)
 
                 curr_count += len(x)
-                curr_loss_gauss += batch_loss * len(x)
+                for k,v in loss_dict.items():
+                    loss_dict_sum[k] += v * len(x)
 
                 if (step + 1) % self.log_every == 0:
-                    gloss = np.around(curr_loss_gauss / curr_count, 4)
-                    writer.add_scalar('train/loss', gloss, step)
+                    for k, v in loss_dict_sum.items():
+                        writer.add_scalar(f'train/{k}', v / curr_count, step)
+                        loss_dict_sum[k] = 0
                     curr_count = 0
-                    curr_loss_gauss = 0.0
                 if (step + 1) % self.save_every == 0:
                     torch.save(self.model.state_dict(), self.checkpoint_file)
                 step += 1

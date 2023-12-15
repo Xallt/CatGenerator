@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import math
 
 def exists(val):
     return val is not None

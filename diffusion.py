@@ -47,19 +47,23 @@ def get_named_beta_schedule(schedule_name, num_diffusion_timesteps, beta_last=0.
     else:
         raise NotImplementedError(f"unknown beta schedule: {schedule_name}")
 
-class Diffusion:
+class Diffusion(torch.nn.Module):
     def __init__(
         self,
-        *,
+        model,
         betas: np.array,
         loss_type: str = "mse",
-        mode = "pred_start"
+        mode = "pred_start",
     ):
         """
         Class that simulates Diffusion process. Does not store model or optimizer.
         """
+        super().__init__()
+
         assert mode in ["pred_start", "pred_noise"]
         self.mode = mode
+
+        self.model = model
 
         betas = torch.from_numpy(betas).double()
         self.betas = betas
@@ -173,7 +177,7 @@ class Diffusion:
         sample = out["mean"] + nonzero_mask * torch.exp(0.5 * out["log_variance"]) * noise
         return {"sample": sample}
     
-    def p_sample_loop(self, model, shape, device=None):
+    def p_sample_loop(self, shape, device=None):
         """
         Samples a batch=shape[0] using diffusion model.
         """
@@ -184,7 +188,7 @@ class Diffusion:
         for i in tqdm(indices):
             t = torch.tensor([i] * shape[0], device=x.device)
             with torch.no_grad():
-                model_output = model(x, t)
+                model_output = self.model(x, t)
                 out = self.p_sample(
                     model_output,
                     x,
@@ -193,14 +197,14 @@ class Diffusion:
                 x = out["sample"]
         return x
     
-    def train_loss(self, model, x0):
+    def train_loss(self, x0):
         """
         Calculates loss L^{simple}_t for the given model, x0.
         """
         t = torch.randint(0, self.num_timesteps, size=(x0.size(0),), device=x0.device)
         noise = torch.randn_like(x0)
         x_t = self.q_sample(x0, t, noise)
-        model_output = model(x_t, t)
+        model_output = self.model(x_t, t)
         if self.mode == "pred_noise":
             loss = F.mse_loss(model_output, noise)
         elif self.mode == "pred_start":

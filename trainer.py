@@ -10,8 +10,7 @@ import numpy as np
 class Trainer:
     def __init__(
         self,
-        diffusion: Diffusion,
-        model: nn.Module,
+        model,
         dl,
         lr: float,
         weight_decay: float,
@@ -21,7 +20,7 @@ class Trainer:
         save_every=1000,
         checkpoint_file='checkpoint.pt'
     ):
-        self.diffusion = diffusion
+        self.model = model
 
         self.dl = dl
         self.num_epochs = num_epochs
@@ -39,7 +38,7 @@ class Trainer:
         Calculates loss for a single batch. 
         Then performs a single optimizer step and returns loss.
         """
-        loss = self.diffusion.train_loss(self.model, x.to(self.device))
+        loss = self.model.train_loss(x.to(self.device))
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()

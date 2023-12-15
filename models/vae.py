@@ -88,9 +88,9 @@ class VAE(nn.Module):
         self.encoder = Encoder(in_channels, in_resolution, base_channels, num_levels, latent_dim=latent_dim, num_blocks_per_level=num_blocks_per_level)
         self.decoder = Decoder(latent_dim, self.final_resolution, in_channels, num_levels, num_blocks_per_level=num_blocks_per_level)
     
-    def sample(self, num_samples=1, latent=None):
+    def sample(self, num_samples=1, latent=None, device='cuda'):
         if latent is None:
-            latent = torch.randn(num_samples, self.latent_dim, device=self.device)
+            latent = torch.randn(num_samples, self.encoder.latent_dim, device=device)
 
         return self.decoder(latent)
 

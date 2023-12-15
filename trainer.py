@@ -2,7 +2,6 @@ from copy import deepcopy
 from torch.utils.tensorboard import SummaryWriter
 import torch
 import torch.nn as nn
-from diffusion import Diffusion
 from tqdm.auto import tqdm
 import numpy as np
 from collections import defaultdict
@@ -19,12 +18,14 @@ class Trainer:
         num_epochs=100,
         log_every=100,
         save_every=1000,
-        checkpoint_file='checkpoint.pt'
+        checkpoint_file='checkpoint.pt',
+        num_samples=4,
     ):
         self.model = model
 
         self.dl = dl
         self.num_epochs = num_epochs
+        self.num_samples = num_samples
         self.init_lr = lr
         self.model = model
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -76,4 +77,9 @@ class Trainer:
                     curr_count = 0
                 if (step + 1) % self.save_every == 0:
                     torch.save(self.model.state_dict(), self.checkpoint_file)
+                    self.model.eval()
+                    with torch.no_grad():
+                        samples = self.model.sample(self.num_samples)
+                    writer.add_images("sample", samples.cpu(), step)
+                    self.model.train()
                 step += 1

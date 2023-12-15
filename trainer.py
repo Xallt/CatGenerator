@@ -80,6 +80,6 @@ class Trainer:
                     self.model.eval()
                     with torch.no_grad():
                         samples = self.model.sample(self.num_samples)
-                    writer.add_images("sample", samples.cpu(), step)
+                    writer.add_images("sample", samples.cpu() * 0.5 + 0.5, step)
                     self.model.train()
                 step += 1

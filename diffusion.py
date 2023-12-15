@@ -197,7 +197,7 @@ class Diffusion(torch.nn.Module):
                 x = out["sample"]
         return x
     
-    def train_loss(self, x0):
+    def compute_loss(self, x0):
         """
         Calculates loss L^{simple}_t for the given model, x0.
         """

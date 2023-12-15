@@ -38,7 +38,7 @@ class Trainer:
         Calculates loss for a single batch. 
         Then performs a single optimizer step and returns loss.
         """
-        loss = self.model.train_loss(x.to(self.device))
+        loss = self.model.compute_loss(x.to(self.device))
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()

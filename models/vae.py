@@ -4,7 +4,7 @@ from .blocks import Block, ResnetBlock
 from torch.nn import functional as F
 
 class Encoder(nn.Module):
-    def __init__(self, in_channels, in_resolution, base_channels, num_levels, num_blocks_per_level=2, latent_dim=256):
+    def __init__(self, in_channels, in_resolution, base_channels, num_levels, num_blocks_per_level=2, latent_dim=256, dropout=0.0):
         super().__init__()
         assert type(in_resolution) == int, f"Input resolution must be an integer, got {in_resolution}"
         assert in_resolution % (2 ** num_levels) == 0, f"Resolution {in_resolution} is not divisible by 2^{num_levels}"
@@ -21,7 +21,7 @@ class Encoder(nn.Module):
         for level in range(num_levels+1):
             channels_next = channels * 2 if level != num_levels else channels
             for _ in range(num_blocks_per_level):
-                layers.append(ResnetBlock(channels, channels_next))
+                layers.append(ResnetBlock(channels, channels_next, dropout=dropout))
                 channels = channels_next
             if level != num_levels:
                 layers.append(nn.AvgPool2d(kernel_size=2))
@@ -51,7 +51,7 @@ class Encoder(nn.Module):
        
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dim, starting_resolution, out_channels, num_levels, num_blocks_per_level=2):
+    def __init__(self, latent_dim, starting_resolution, out_channels, num_levels, num_blocks_per_level=2, dropout=0.0):
         super().__init__()
         self.starting_resolution = starting_resolution
         self.fc = nn.Linear(latent_dim, latent_dim * (starting_resolution ** 2))
@@ -62,7 +62,7 @@ class Decoder(nn.Module):
         for level in range(num_levels+1):
             channels_next = channels // 2 if level != 0 else channels
             for _ in range(num_blocks_per_level):
-                layers.append(ResnetBlock(channels, channels_next))
+                layers.append(ResnetBlock(channels, channels_next, dropout=dropout))
                 channels = channels_next
             if level != num_levels:
                 layers.append(nn.Upsample(scale_factor=2, mode='nearest'))
@@ -78,15 +78,15 @@ class Decoder(nn.Module):
         return x
 
 class VAE(nn.Module):
-    def __init__(self, in_channels, base_channels, in_resolution, num_levels, latent_dim, num_blocks_per_level=2):
+    def __init__(self, in_channels, base_channels, in_resolution, num_levels, latent_dim, num_blocks_per_level=2, dropout=0.0):
         super().__init__()
         self.in_channels = in_channels
         self.in_resolution = in_resolution
         self.final_resolution = in_resolution // (2 ** num_levels)
         self.num_levels = num_levels
 
-        self.encoder = Encoder(in_channels, in_resolution, base_channels, num_levels, latent_dim=latent_dim, num_blocks_per_level=num_blocks_per_level)
-        self.decoder = Decoder(latent_dim, self.final_resolution, in_channels, num_levels, num_blocks_per_level=num_blocks_per_level)
+        self.encoder = Encoder(in_channels, in_resolution, base_channels, num_levels, latent_dim=latent_dim, num_blocks_per_level=num_blocks_per_level, dropout=dropout)
+        self.decoder = Decoder(latent_dim, self.final_resolution, in_channels, num_levels, num_blocks_per_level=num_blocks_per_level, dropout=dropout)
     
     def sample(self, num_samples=1, latent=None, device='cuda'):
         if latent is None:

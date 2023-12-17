@@ -39,22 +39,26 @@ class Trainer:
         self.save_every = save_every
         self.checkpoint_file = checkpoint_file
 
+    def compute_loss(self, x):
+        kwargs = {}
+        # Behavior specific to VAE training
+        if isinstance(self.model, VAE):
+            kwargs["kld_weight"] = 0.002
+        loss_dict = self.model.compute_loss(x.to(self.device), **kwargs)
+        return loss_dict
+
     def _run_step(self, x):
         """
         A single training step.
         Calculates loss for a single batch.
         Then performs a single optimizer step and returns loss.
         """
-        kwargs = {}
-        # Behavior specific to VAE training
-        if isinstance(self.model, VAE):
-            kwargs["kld_weight"] = 0.02
-        loss_dict = self.model.compute_loss(x.to(self.device), **kwargs)
+        loss_dict = self.compute_loss(x)
         loss = loss_dict["loss"]
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        return {k: v.item() for k, v in loss_dict.items()}
+        return loss_dict
 
     def run_loop(self, progress_bar=True):
         """
@@ -77,18 +81,40 @@ class Trainer:
 
                 curr_count += len(x)
                 for k, v in loss_dict.items():
-                    loss_dict_sum[k] += v * len(x)
+                    if not k.endswith("loss"):
+                        continue
+                    loss_dict_sum[k] += v.item() * len(x)
 
                 if (step + 1) % self.log_every == 0:
                     for k, v in loss_dict_sum.items():
+                        if not k.endswith("loss"):
+                            continue
                         writer.add_scalar(f"train/{k}", v / curr_count, step)
                         loss_dict_sum[k] = 0
                     curr_count = 0
+
                 if (step + 1) % self.save_every == 0:
                     torch.save(self.model.state_dict(), self.checkpoint_file)
                     self.model.eval()
                     with torch.no_grad():
                         samples = self.model.sample(self.num_samples)
                     writer.add_images("sample", samples.cpu() * 0.5 + 0.5, step)
+
+                    val_loss_dict = defaultdict(float)
+                    val_count = 0
+                    for x in self.val_dl:
+                        x = x.to(self.device)
+                        loss_dict = self.compute_loss(x)
+                        for k, v in loss_dict.items():
+                            if not k.endswith("loss"):
+                                continue
+                            val_loss_dict[k] += v.item() * len(x)
+                        val_count += len(x)
+
+                    for k, v in val_loss_dict.items():
+                        if not k.endswith("loss"):
+                            continue
+                        writer.add_scalar(f"val/{k}", v / val_count, step)
+
                     self.model.train()
                 step += 1

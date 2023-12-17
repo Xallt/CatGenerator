@@ -44,7 +44,7 @@ class CatDataset(torch.utils.data.Dataset):
         return torch.utils.data.DataLoader(
             self,
             batch_size=batch_size,
-            sampler=torch.utils.data.SubsetRandomSampler(self.val_indices),
+            sampler=self.val_indices,
         )
 
     def test_loader(self, batch_size=1):

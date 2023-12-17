@@ -6,6 +6,7 @@ from tqdm.auto import tqdm
 import numpy as np
 from collections import defaultdict
 from models.vae import VAE
+from torchvision.utils import make_grid
 
 
 class Trainer:
@@ -102,9 +103,20 @@ class Trainer:
 
                     val_loss_dict = defaultdict(float)
                     val_count = 0
+                    images_logged = False
                     for x in self.val_dl:
                         x = x.to(self.device)
                         loss_dict = self.compute_loss(x)
+
+                        if not images_logged and "x_decoded" in loss_dict:
+                            val_x = x[:8].cpu() * 0.5 + 0.5
+                            val_x_decoded = loss_dict["x_decoded"][:8].cpu() * 0.5 + 0.5
+                            val_x_images = torch.cat([val_x, val_x_decoded], dim=0)
+                            val_x_images = make_grid(val_x_images, nrow=8)
+
+                            writer.add_image("val/x_decoded", val_x_images, step)
+                            images_logged = True
+
                         for k, v in loss_dict.items():
                             if not k.endswith("loss"):
                                 continue

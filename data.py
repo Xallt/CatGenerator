@@ -5,11 +5,24 @@ import numpy as np
 from glob import glob
 
 
+class LambdaDataset(torch.utils.data.Dataset):
+    def __init__(self, ds, f):
+        self.ds = ds
+        self.f = f
+
+    def __len__(self):
+        return len(self.ds)
+
+    def __getitem__(self, idx):
+        return self.f(self.ds[idx])
+
+
 class CatDataset(torch.utils.data.Dataset):
-    def __init__(self, path, transform=None, seed=42):
+    def __init__(self, path, transform=None, augmentation=None, seed=42):
         self.path = path
         self.files = list(glob(os.path.join(path, "*.jpg")))
         self.transform = transform
+        self.augmentation = augmentation
 
         self.seed = seed
         self.rng = np.random.default_rng(seed)
@@ -35,7 +48,7 @@ class CatDataset(torch.utils.data.Dataset):
 
     def train_loader(self, batch_size=1):
         return torch.utils.data.DataLoader(
-            self,
+            LambdaDataset(self, self.augmentation),
             batch_size=batch_size,
             sampler=torch.utils.data.SubsetRandomSampler(self.train_indices),
         )

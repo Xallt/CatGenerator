@@ -14,7 +14,9 @@ def compute_metrics(test_loader, model, fid_num_samples=1000):
         with torch.no_grad():
             x_enc = model.encoder(x)[0]
             x_rec = model.decoder(x_enc)
-            metrics["ssim"] += ssim(x * 0.5 + 0.5, x_rec * 0.5 + 0.5).item()
+            metrics["ssim"] += ssim(
+                (x * 0.5 + 0.5).clip(0, 1), (x_rec * 0.5 + 0.5).clip(0, 1)
+            ).item()
         count += len(x)
     metrics = {k: v / count for k, v in metrics.items()}
 
